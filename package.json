@@ -1,0 +1,20 @@
+{
+  "name": "fullstack-task-manager",
+  "version": "1.0.0",
+  "description": "Production-ready fullstack task manager — React + TypeScript + Node.js + MySQL",
+  "private": true,
+  "scripts": {
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "dev:backend":  "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "migrate":      "cd backend && npm run migrate",
+    "docker:up":    "docker compose up --build",
+    "docker:down":  "docker compose down"
+  },
+  "keywords": ["fullstack", "react", "typescript", "nodejs", "express", "mysql", "rest-api", "task-manager"],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

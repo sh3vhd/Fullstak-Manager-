@@ -1,0 +1,111 @@
+# ============================================================
+# DOCKER COMPOSE — Full stack orchestration
+# Services:
+#   db       — MySQL 8.0 database
+#   backend  — Node.js API server
+#   frontend — Vite dev server (or Nginx in prod)
+#
+# Usage:
+#   Development: docker compose up
+#   Production:  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# ============================================================
+
+version: '3.9'
+
+services:
+  # ----------------------------------------
+  # DATABASE — MySQL 8.0
+  # Persistent data stored in named volume
+  # healthcheck ensures backend waits for DB to be ready
+  # ----------------------------------------
+  db:
+    image: mysql:8.0
+    container_name: taskflow_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-taskflow_secret}
+      MYSQL_DATABASE: ${DB_NAME:-task_manager}
+      MYSQL_USER: ${DB_USER:-taskflow}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-taskflow_secret}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql  # Persist database between restarts
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-taskflow_secret}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - taskflow_network
+
+  # ----------------------------------------
+  # BACKEND — Node.js API
+  # Depends on db being healthy before starting
+  # Auto-runs migrations on first startup
+  # ----------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: taskflow_api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      DB_HOST: db                    # Service name = hostname in Docker network
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-task_manager}
+      DB_USER: ${DB_USER:-taskflow}
+      DB_PASSWORD: ${DB_PASSWORD:-taskflow_secret}
+      JWT_SECRET: ${JWT_SECRET:-change_this_in_production_please}
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGIN: http://localhost:3000
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app               # Hot reload: mount source code
+      - /app/node_modules            # Prevent host node_modules from overriding
+    depends_on:
+      db:
+        condition: service_healthy   # Wait for MySQL to be ready
+    command: sh -c "npm run migrate && npm run dev"
+    networks:
+      - taskflow_network
+
+  # ----------------------------------------
+  # FRONTEND — React + Vite dev server
+  # ----------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: taskflow_ui
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:5000/api
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - taskflow_network
+
+# ----------------------------------------
+# NAMED VOLUMES — persists DB data between container restarts
+# ----------------------------------------
+volumes:
+  mysql_data:
+    driver: local
+
+# ----------------------------------------
+# NETWORK — isolated bridge network for services
+# Services communicate by container name
+# ----------------------------------------
+networks:
+  taskflow_network:
+    driver: bridge
