@@ -288,7 +288,3 @@ tasks (
 MIT — free for personal and commercial use.
 
 ---
-
-<div align="center">
-  <sub>Built with ❤️ as a clean architecture showcase project</sub>
-</div>
